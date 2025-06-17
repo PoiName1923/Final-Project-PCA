@@ -10,7 +10,8 @@ class FeatureVectorizer:
     """
 
     def __init__(self):
-        pass
+
+        self._tfidf_vectorizer = TfidfVectorizer()
 
 
     def _text_vectorizer(self, text: str) -> np.ndarray:
@@ -20,7 +21,7 @@ class FeatureVectorizer:
         Returns:
             np.ndarray: An array representing the feature vector of the text data.
         """
-        return TfidfVectorizer().transform(text)
+        return self._tfidf_vectorizer.transform(text)
 
 
     def _image_vectorizer(self, image_matrix: np.ndarray) -> np.ndarray:
@@ -35,27 +36,38 @@ class FeatureVectorizer:
         if not isinstance(image_matrix, np.ndarray):
             raise TypeError("image_matrix must be a numpy array.")
         
-        # if image_matrix.shape != (64, 64):
-        #     raise ValueError("image_matrix must be of shape (64, 64).")
-
         # Convert image to grayscale matrix
         gray_image_matrix = cv2.cvtColor(image_matrix, cv2.COLOR_BGR2GRAY)
-    
-        row, col = gray_image_matrix.shape
+        
+        return gray_image_matrix    # Shape(m, n) 
+       
 
-        flat_array = np.zeros((row * col,))
+    def _standard_scaler(self, series: pd.Series) -> pd.Series:
+        """
+        Apply standard scaling to a numeric Series.
 
-        idx = 0
+        Args:
+            series (pd.Series): The numeric column to scale.
 
-        for i in range(row):
-            for j in range(col):
-                flat_array[idx] = gray_image_matrix[i][j]
-                idx += 1
-            
-        return flat_array      # shape (row * col,)
-    
+        Returns:
+            pd.Series: The scaled column.
+        """
 
-    def _table_vectorizer(self, table_data: pd.DataFrame, length_threshold: int = 50) -> np.ndarray:
+        # Check param
+        if not isinstance(series, pd.Series):
+            raise TypeError("Input must be a pandas Series.")
+
+        if not pd.api.types.is_numeric_dtype(series):
+            raise TypeError("Series must be of numeric dtype.")
+
+        # Calculate mean & std
+        mean = series.mean()
+        std = series.std()
+
+        return (series - mean) / std if std != 0 else series
+
+
+    def _table_vectorizer(self, table_data: pd.DataFrame, length_threshold: int = 20) -> np.ndarray:
         """
         Normalize and vectorize table data into a feature vector.
 
@@ -66,45 +78,64 @@ class FeatureVectorizer:
         # Check params
         if not isinstance(table_data, pd.DataFrame):
             raise TypeError("table_data must be a pandas DataFrame.")
-        
-        # Normalize numeric columns
-        for numeric_col in table_data.select_dtypes(include = ['number']).columns:
-            mean = table_data[numeric_col].mean()
-            std  = table_data[numeric_col].std()
-            table_data[numeric_col] = (table_data[numeric_col] - mean) / std
 
-        # Columns to drop (comment, long text, ...)
-        cols_to_drop = []
+        # Traverse all cols 
+        for col in table_data.columns:
+            # ========== Process numeric cols ==========
+            if pd.api.types.is_numeric_dtype(table_data[col]):
+                # Fill missing values
+                if table_data[col].isnull().any():
+                    # Check standard distribution
+                    skew = table_data[col].skew()
 
-        # Label Encoding for text columns
-        for text_col in table_data.select_dtypes(include = ['object']).columns:
-            if isinstance(table_data[text_col], pd.DataFrame):
-                print(table_data)
-            avg_length = table_data[text_col].fillna('').apply(lambda x: len(str(x))).mean()
-            unique_values = list(table_data[text_col].unique())
+                    table_data[col] = (
+                        table_data[col].fillna(table_data[col].mean()) if abs(skew) < 1 \
+                        else table_data[col].fillna(table_data[col].median())
+                    )
 
-            # Check:
-            # 1. If the average length of the text is below the threshold
-            # (Avoid comment columns, long text columns, ...)
-            # 2. If the number of unique values is less than half of the total number of rows
-            # (Avoid columns with too many unique values, like names, ...)
-            if avg_length < length_threshold and len(unique_values) < len(table_data) / 2: 
-                table_data[text_col] = table_data[text_col].\
-                                       apply(lambda x: unique_values.index(x)).fillna(-1).astype('int')
-            
-            # If the average length is above the threshold or the number of unique values is too high, remove the column
+            # ========== Process text cols ==========
+            # Try to convert to datetime first (if possible)
             else:
-                cols_to_drop.append(text_col)
-        
-        # Drop long text columns
-        normalized_data = table_data.drop(columns = cols_to_drop)
 
-        # Convert to numpy array
-        normalized_data = normalized_data.to_numpy()
+                try:
+                    table_data[col] = pd.to_datetime(table_data[col], errors = 'raise')
+                    
+                    # Convert to Unix timestamp
+                    table_data[col] = table_data[col].astype('int64') // 10**9
+                    
+                except Exception:
+                    # If not datetime col, continue to handle text
+                    pass
 
-        return normalized_data
+                # Fill null by '' and calculate avg length of text
+                avg_length = table_data[col].fillna('').apply(lambda x: len(str(x))).mean()
+
+                # Create list of unique values in the text column
+                unique_values = list(table_data[col].unique())
+
+                # Check
+                # 1. If the average length is above the threshold, apply tf_idf to vectorize the text
+                if avg_length > length_threshold:
+                    table_data[col] = table_data[col].\
+                            apply(lambda x: self._tfidf_vectorizer.transform(x) if pd.notnull(x) else np.array([0]))
+
+                # 2. If it is a categorical column, encode using the index of unique values
+                else:
+                    table_data[col] = table_data[col].\
+                                           apply(lambda x: unique_values.index(x)).fillna(-1).astype('int')
+                    
+            # Normalize data
+            if pd.api.types.is_numeric_dtype(table_data[col]):
+                table_data[col] = self._standard_scaler(table_data[col])
     
-    
+        return table_data.to_numpy()
+
+
+    def _audio_vectorizer(self, audio_data):
+        pass
+        # To be continued... 
+   
+
     def vectorize(self, list_data: list) -> np.ndarray:
         """
         Vectorize the data based on its type.
