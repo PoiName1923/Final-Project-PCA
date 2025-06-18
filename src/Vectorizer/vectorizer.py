@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import cv2
+import librosa
 from .tf_idf_module import TfidfVectorizer
 
 
@@ -131,10 +132,30 @@ class FeatureVectorizer:
         return table_data.to_numpy()
 
 
-    def _audio_vectorizer(self, audio_data):
-        pass
-        # To be continued... 
-   
+    def _audio_vectorizer(self, audio_data: np.ndarray,
+                          frame_length: int = 2048, 
+                          hop_length: int = 512) -> np.ndarray:
+        """
+        Vectorize audio data into a 2D feature matrix by splitting audio_data into frames.
+
+        Args:
+            frame_length (int): Length of each frame in data.
+            hop_length (int): Step size between frames in samples.
+            audio_data (np.ndarray): 1D waveform array.
+
+        Returns:
+            np.ndarray: 
+        """
+
+        # Check params
+        if not isinstance(audio_data, np.ndarray):
+            raise TypeError("audio_data must be a np.ndarray.")
+
+        # Create frames
+        frames = librosa.util.frame(audio_data, frame_length = frame_length, hop_length = hop_length).T
+
+        return frames
+
 
     def vectorize(self, list_data: list) -> np.ndarray:
         """
@@ -155,7 +176,7 @@ class FeatureVectorizer:
             if not all(key in data for key in ['type', 'content', 'meta']):
                 raise ValueError("list_data must contain 'type', 'content', and 'meta' keys.")
 
-            if data['type'] not in ['text', 'image', 'table']:
+            if data['type'] not in ['text', 'image', 'table', 'audio']:
                 raise ValueError("data_type must be one of 'text', 'image', 'table'.")
        
             # If condition to vectorize appropriate data type
@@ -164,6 +185,9 @@ class FeatureVectorizer:
             
             elif data['type'] == 'image':
                 vectorized_vector.append(self._image_vectorizer(data['content']))
+
+            elif data['type'] == 'audio':
+                vectorized_vector.append(self._audio_vectorizer(data['content']))
 
             else: 
                 vectorized_vector.append(self._table_vectorizer(data['content']))
