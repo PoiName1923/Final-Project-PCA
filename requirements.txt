@@ -12,3 +12,4 @@ PyMuPDF
 soundfile
 opencv-python
 matplotlib
+librosa
