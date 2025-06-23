@@ -1,12 +1,4 @@
 import os
-from sys import implementation
-import numpy as np
-import pandas as pd
-from src.Vectorizer.vectorizer import FeatureVectorizer
-from src.Reader.reader_agent import DataExpander
-import warnings
-warnings.filterwarnings("ignore")
-
 # Path to the files
 txt_path   = os.path.join("data_test_for_reader", "report.txt")
 image_path = os.path.join("data_test_for_reader", "cat.jpg")
@@ -17,47 +9,60 @@ json_path  = os.path.join("data_test_for_reader", "data.json")
 html_path  = os.path.join("data_test_for_reader", "article.html")
 audio_path = os.path.join("data_test_for_reader", "music.mp3")
 
+# main.py
+from src.Reader.reader_agent import DataExpander
+from src.Vectorizer.vectorizer_module import FeatureVectorizer
+from pca_module import PCA
+from evaluate_error_module import mean_squared_error_manual
+from evaluate_error_module import explained_variance
+
+import numpy as np
 
 def main():
-    # 0. Call modules
-    reader = DataExpander()
-    vectorizer = FeatureVectorizer()
+    path = "Final-Project-PCA/data_test_for_reader/file.txt"
+    
+    # 1. read data
+    data = DataExpander().expand(path)
+    # print(data)
+    # # 2. Vectorize 
 
-    # 1. Read files
-    #text_data = dict(reader.expand(txt_path)[0])
-    #image_data = reader.expand(image_path)
-    #table_data = reader.expand(table_path)
-    #pdf_data = reader.expand(pdf_path)
-    #docx_data = reader.expand(docx_path)
-    #json_data = reader.expand(json_path)
-    #html_data = reader.expand(html_path)    
-    audio_data = reader.expand(audio_path)
+    fv = FeatureVectorizer()
+    vectorized_data = fv.vectorize(data)
 
-    # 2. Vectorize data
-    #text_vector = vectorizer.vectorize(text_data)
-    #print(text_vector.shape)
-    #image_vector = vectorizer.vectorize(image_data)
-    #table_vector = vectorizer.vectorize(table_data)
-    #pdf_vector = vectorizer.vectorize(pdf_data)
-    #docx_vector = vectorizer.vectorize(docx_data)
-    #html_vector = vectorizer.vectorize(html_data)
-    #json_vector = vectorizer.vectorize(json_data)
-    audio_vector = vectorizer.vectorize(audio_data)
+    print(vectorized_data[0].shape)
+    print(vectorized_data[0])
+ 
+    # # 3.1 apply PCA for many files
+    # # vectors = []
+    # # for file in list_of_paths:
+    # #     data_info = DataExpander().expand(file)
+    # #     vector = fv.vectorize(data_info)
+    # #     vectors.append(vector)
 
-    # 3. Print results
-    #print("text after vectorization: \n", text_vector)
-    #print("image after vectorization:", image_vector)
-    #print("table after vectorization: \n", table_vector)
-    #print("shape of table before and after vectorization: \n", table_data[0]['content'].shape, table_vector[0].shape)
-    #print("pdf after vectorization: \n", pdf_vector)
-    #print("docx after vectorization: \n", docx_vector)
-    #print("html after vectorization: \n", html_vector)
-    #print("json after vectorization: \n", json_vector)
-    print("shape of audio np array before and after vectorization: \n", \
-            audio_data[0]['content'].shape, audio_vector[0].shape)
+    # # X = np.vstack(vectors)  # shape: (num_samples, num_features)
+    # # my_pca = PCA().fit(X)
 
+    # 3.2: apply PCA for 1 file
+    import time 
+    start_time = time.time()
+    my_pca = PCA().fit(vectorized_data[0])
+    X_reduced = my_pca.transform(vectorized_data[0])
+    X_reconstructed = my_pca.inverse_transform(X_reduced)
+    end_time = time.time()
+    print(f"Time taken for PCA: {end_time - start_time} seconds")
+    # # 4. evaluate error
+    error = mean_squared_error_manual(vectorized_data[0], X_reconstructed)
+    print(error) 
+    explain_var = explained_variance(vectorized_data[0], X_reconstructed)
+    print(explain_var)
+    # # test with sample test
+    
 if __name__ == "__main__":
     main()
 
-#shape of audio np array before and after vectorization: 
-# (9958705,) (19447, 2048)
+"""
+images: oke
+DataFrame: oke
+Text: Oke
+audio: oke
+"""
