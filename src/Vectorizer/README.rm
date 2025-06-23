@@ -38,6 +38,25 @@ Ví dụ ...
 86.3274845550041
 
 
-
+Tiếp theo là images:
+Đơn giản chỉ là đưa về dạng gray scale (n, m)
 
 Tiếp theo là table (DataFrame)
+Hàm table_vectorizer chuyển đổi DataFrame thành ma trận vector số bằng cách tự động nhận diện kiểu dữ liệu từng cột:
+số, boolean, ngày giờ, văn bản ngắn (categorical), văn bản dài (TF-IDF), đồng thời chuẩn hóa giá trị và loại bỏ các cột chứa liên kết.
+
+Hàm cũng xử lý header giả nếu có, đi kèm metadata mô tả kiểu đặc trưng từng cột và các cột bị bỏ qua.
+
+Nói tóm gọn là vậy
+
+Cuối cùng là audio 
+...
+
+
+
+
+
+
+
+
+
