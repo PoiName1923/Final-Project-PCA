@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import cv2
 import librosa
-from .tf_idf_module import TfidfVectorizer
+from tf_idf_module import TfidfVectorizer
 
 
 class FeatureVectorizer:
@@ -66,71 +66,139 @@ class FeatureVectorizer:
         std = series.std()
 
         return (series - mean) / std if std != 0 else series
-
-
-    def _table_vectorizer(self, table_data: pd.DataFrame, length_threshold: int = 20) -> np.ndarray:
+    
+    def _extract_header_if_exists(self, df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         """
-        Normalize and vectorize table data into a feature vector.
-
-        Returns:
-            np.ndarray: An array representing the feature vector of the table data.
+        Nhận diện và tách dòng đầu tiên nếu nó là header giả.
+        Trả về: (DataFrame đã xử lý, meta dict chứa 'header' nếu có)
         """
+        meta = {}
 
-        # Check params
+        # Chỉ kiểm tra khi cột là số (RangeIndex)
+        if not isinstance(df.columns, pd.RangeIndex) or len(df) < 2:
+            return df, meta  # Không nghi ngờ gì
+
+        first_row = df.iloc[0]
+        next_rows = df.iloc[1:6]  # lấy vài dòng sau để so sánh
+
+        # ========== Rule 1: dòng đầu chứa toàn string có chữ ==========
+        text_like_count = sum(isinstance(x, str) and any(c.isalpha() for c in str(x)) for x in first_row)
+        is_text_dominated = text_like_count >= len(df.columns) * 0.5
+
+        # ========== Rule 2: kiểu dữ liệu khác biệt rõ rệt ==========
+        def get_type_list(row): return [type(x) for x in row]
+        first_types = get_type_list(first_row)
+        later_types = next_rows.apply(get_type_list, axis=1).values
+
+        # Đếm số kiểu khác nhau giữa dòng đầu và các dòng sau
+        type_mismatch_scores = [
+            sum(ft != lt for ft, lt in zip(first_types, row)) for row in later_types
+        ]
+        avg_type_diff = sum(type_mismatch_scores) / max(len(type_mismatch_scores), 1)
+
+        # ========== Rule 3: đặc trưng header (nhiều ký tự đặc biệt) ==========
+        special_chars = set(":_-@/.#")
+        special_score = sum(
+            sum(c in special_chars for c in str(x)) for x in first_row
+        ) / len(df.columns)
+
+        # ========== Tổng hợp ==========
+        if is_text_dominated and avg_type_diff >= len(df.columns) * 0.4 and special_score > 1.0:
+            meta['header'] = [str(x) for x in first_row]
+            df = df.iloc[1:].reset_index(drop=True)
+
+        return df, meta
+
+    def _is_link_like(self, s: str) -> bool:
+        s = str(s).lower()
+        return any(p in s for p in ['http', 'www.', '.com', '.org', '.net'])
+
+    def _table_vectorizer(self, table_data: pd.DataFrame, length_threshold: int = 15) -> tuple[np.ndarray, dict]:
         if not isinstance(table_data, pd.DataFrame):
             raise TypeError("table_data must be a pandas DataFrame.")
 
-        # Traverse all cols 
-        for col in table_data.columns:
-            # ========== Process numeric cols ==========
-            if pd.api.types.is_numeric_dtype(table_data[col]):
-                # Fill missing values
-                if table_data[col].isnull().any():
-                    # Check standard distribution
-                    skew = table_data[col].skew()
+        df = table_data.copy()
+        df, meta = self._extract_header_if_exists(df)
+        numeric_data, categorical_data, tfidf_data, date_data, bool_data = [], [], [], [], []
+        meta.setdefault('ignored_link_columns', [])
+        meta.setdefault('col_feature_types', {})
 
-                    table_data[col] = (
-                        table_data[col].fillna(table_data[col].mean()) if abs(skew) < 1 \
-                        else table_data[col].fillna(table_data[col].median())
-                    )
+        for col in df.columns:
+            series = df[col]
 
-            # ========== Process text cols ==========
-            # Try to convert to datetime first (if possible)
-            else:
-
-                try:
-                    table_data[col] = pd.to_datetime(table_data[col], errors = 'raise')
-                    
-                    # Convert to Unix timestamp
-                    table_data[col] = table_data[col].astype('int64') // 10**9
-                    
-                except Exception:
-                    # If not datetime col, continue to handle text
-                    pass
-
-                # Fill null by '' and calculate avg length of text
-                avg_length = table_data[col].fillna('').apply(lambda x: len(str(x))).mean()
-
-                # Create list of unique values in the text column
-                unique_values = list(table_data[col].unique())
-
-                # Check
-                # 1. If the average length is above the threshold, apply tf_idf to vectorize the text
-                if avg_length > length_threshold:
-                    table_data[col] = table_data[col].\
-                            apply(lambda x: self._tfidf_vectorizer.transform(x) if pd.notnull(x) else np.array([0]))
-
-                # 2. If it is a categorical column, encode using the index of unique values
+            # Handle missing values
+            if series.isnull().any():
+                if pd.api.types.is_numeric_dtype(series):
+                    series = series.fillna(series.mean() if abs(series.skew()) < 1 else series.median())
                 else:
-                    table_data[col] = table_data[col].\
-                                           apply(lambda x: unique_values.index(x)).fillna(-1).astype('int')
-                    
-            # Normalize data
-            if pd.api.types.is_numeric_dtype(table_data[col]):
-                table_data[col] = self._standard_scaler(table_data[col])
-    
-        return table_data.to_numpy()
+                    series = series.fillna("missing")
 
+            # ========== Check truly numeric ==========
+            is_strict_numeric = pd.api.types.is_numeric_dtype(series) and not series.astype(str).str.contains('[a-zA-Z]', na=False).any()
+
+            if is_strict_numeric:
+                series = self._standard_scaler(series)
+                numeric_data.append(series.to_numpy().reshape(-1, 1))
+                meta['col_feature_types'][col] = 'numeric'
+
+            # ========== Boolean ==========
+            elif pd.api.types.is_bool_dtype(series):
+                bool_data.append(series.astype(int).to_numpy().reshape(-1, 1))
+                meta['col_feature_types'][col] = 'boolean'
+
+            # ========== Datetime ==========
+            else:
+                try:
+                    dt_series = pd.to_datetime(series, errors='raise')
+                    ts = dt_series.astype('int64') // 10**9
+                    ts = self._standard_scaler(ts)
+                    date_data.append(ts.to_numpy().reshape(-1, 1))
+                    meta['col_feature_types'][col] = 'datetime'
+                    continue
+                except Exception:
+                    pass  # not datetime
+
+                # ========== TEXT column ==========
+                text_series = series.astype(str)
+                n_unique = text_series.nunique()
+                avg_length = text_series.apply(len).mean()
+                ratio_special_chars = text_series.apply(lambda x: sum(1 for c in x if not c.isalnum()) / (len(x) + 1)).mean()
+                is_link_col = text_series.apply(self._is_link_like).mean() > 0.3
+
+                if is_link_col:
+                    meta['ignored_link_columns'].append(col)
+                    meta['col_feature_types'][col] = 'link_ignored'
+                    continue  # skip processing this column
+
+                # 💡 Categorical column
+                if n_unique <= 30 and avg_length <= length_threshold:
+                    unique_vals = list(text_series.unique())
+                    encoded = text_series.apply(lambda x: unique_vals.index(x) if x in unique_vals else -1)
+                    encoded = self._standard_scaler(encoded)
+                    categorical_data.append(encoded.to_numpy().reshape(-1, 1))
+                    meta['col_feature_types'][col] = 'categorical'
+
+                # 💡 TF-IDF column
+                elif avg_length > length_threshold or ratio_special_chars > 0.2:
+                    self._tfidf_vectorizer.fit(text_series.tolist())
+                    tfidf_matrix = np.vstack([
+                        self._tfidf_vectorizer.transform(doc).reshape(1, -1)
+                        for doc in text_series
+                    ])
+                    tfidf_data.append(tfidf_matrix)
+                    meta['col_feature_types'][col] = 'tf-idf'
+                # 💡 Fallback categorical
+                else:
+                    unique_vals = list(text_series.unique())
+                    encoded = text_series.apply(lambda x: unique_vals.index(x) if x in unique_vals else -1)
+                    encoded = self._standard_scaler(encoded)
+                    categorical_data.append(encoded.to_numpy().reshape(-1, 1))
+                    meta['col_feature_types'][col] = 'categorical_simple'
+
+        all_parts = numeric_data + bool_data + date_data + categorical_data + tfidf_data
+        vector = np.hstack(all_parts) if all_parts else np.empty((len(df), 0))
+
+        return vector
 
     def _audio_vectorizer(self, audio_data: np.ndarray,
                           frame_length: int = 2048, 
@@ -155,7 +223,6 @@ class FeatureVectorizer:
         frames = librosa.util.frame(audio_data, frame_length = frame_length, hop_length = hop_length).T
 
         return frames
-
 
     def vectorize(self, list_data: list) -> np.ndarray:
         """
@@ -192,13 +259,4 @@ class FeatureVectorizer:
             else: 
                 vectorized_vector.append(self._table_vectorizer(data['content']))
 
-        
         return vectorized_vector
-
-
-
-
-
-
-
-
