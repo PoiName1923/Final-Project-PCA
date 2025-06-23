@@ -4,35 +4,69 @@ import cv2
 import librosa
 from tf_idf_module import TfidfVectorizer
 from vector_for_text_Way1 import ManualTokenizer, auto_select_maxlen
-
 class FeatureVectorizer:
     """
     A class to vectorize text, arrays, dataframes to a feature vector.
     """
+    #========== Text vectorize Way 1 ==========
+    # def __init__(self):
+    #     self.tokenizer = ManualTokenizer(maxlen=512, scale="minmax")
+     
+    # def _text_vectorizer(self, text: str) -> np.ndarray:
+    #     """
+    #     Vectorize text data into a 2D array using ManualTokenizer with optimal maxlen.
+        
+    #     Returns:
+    #         np.ndarray: (num_chunks, maxlen)
+    #     """
+    #     if not isinstance(text, str):
+    #         raise TypeError("Input text must be a string.")
 
+    #     # 1. Tự động chọn maxlen tối ưu
+    #     optimal_maxlen = auto_select_maxlen(text)
+    #     self.tokenizer.maxlen = optimal_maxlen
+
+    #     # 2. Build vocab nếu chưa có
+    #     if not self.tokenizer._is_vocab_built:
+    #         self.tokenizer.build_vocab(text)
+
+    #     # 3. Vectorize
+    #     return self.tokenizer.transform(text)
+
+   #========== Text vectorize Way 2 ==========
     def __init__(self):
-        self.tokenizer = ManualTokenizer(maxlen=512, scale="minmax")
+        self._tfidf_vectorizer = TfidfVectorizer()
 
     def _text_vectorizer(self, text: str) -> np.ndarray:
         """
-        Vectorize text data into a 2D array using ManualTokenizer with optimal maxlen.
+        Vectorize a multi-line text into TF-IDF vectors using line-wise tokenization.
         
+        Each line is treated as a separate document.
         Returns:
-            np.ndarray: (num_chunks, maxlen)
+            np.ndarray: Shape (num_lines, vocab_size)
         """
         if not isinstance(text, str):
             raise TypeError("Input text must be a string.")
 
-        # 1. Tự động chọn maxlen tối ưu
-        optimal_maxlen = auto_select_maxlen(text)
-        self.tokenizer.maxlen = optimal_maxlen
+        # 1. Chia thành các dòng
+        lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
+        if len(lines) == 0:
+            return np.zeros((1, 0))  # hoặc raise lỗi tùy ý
 
-        # 2. Build vocab nếu chưa có
-        if not self.tokenizer._is_vocab_built:
-            self.tokenizer.build_vocab(text)
+        # 2. Fit TF-IDF trên toàn bộ các dòng
+        self._tfidf_vectorizer.fit(lines)
 
-        # 3. Vectorize
-        return self.tokenizer.transform(text)
+        # 3. Transform từng dòng → mỗi dòng là 1 TF-IDF vector (shape: (vocab_size,))
+        tfidf_vectors = []
+        for line in lines:
+            vec = self._tfidf_vectorizer.transform(line)  # returns shape (num_sentences_in_line, vocab_size)
+            if vec.ndim == 2:
+                # Lấy trung bình theo câu nếu nhiều câu trong dòng
+                vec = vec.mean(axis=0)
+            tfidf_vectors.append(vec)
+
+        # 4. Stack lại thành ma trận (num_lines, vocab_size)
+        return np.vstack(tfidf_vectors)
 
     def _image_vectorizer(self, image_matrix: np.ndarray) -> np.ndarray:
         """
