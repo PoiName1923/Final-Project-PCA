@@ -3,7 +3,7 @@ import pandas as pd
 import cv2
 import librosa
 from tf_idf_module import TfidfVectorizer
-
+from vector_for_text_Way1 import ManualTokenizer, auto_select_maxlen
 
 class FeatureVectorizer:
     """
@@ -11,19 +11,28 @@ class FeatureVectorizer:
     """
 
     def __init__(self):
-
-        self._tfidf_vectorizer = TfidfVectorizer()
-
+        self.tokenizer = ManualTokenizer(maxlen=512, scale="minmax")
 
     def _text_vectorizer(self, text: str) -> np.ndarray:
         """
-        Vectorize text data into a feature vector.
-
+        Vectorize text data into a 2D array using ManualTokenizer with optimal maxlen.
+        
         Returns:
-            np.ndarray: An array representing the feature vector of the text data.
+            np.ndarray: (num_chunks, maxlen)
         """
-        return self._tfidf_vectorizer.transform(text)
+        if not isinstance(text, str):
+            raise TypeError("Input text must be a string.")
 
+        # 1. Tự động chọn maxlen tối ưu
+        optimal_maxlen = auto_select_maxlen(text)
+        self.tokenizer.maxlen = optimal_maxlen
+
+        # 2. Build vocab nếu chưa có
+        if not self.tokenizer._is_vocab_built:
+            self.tokenizer.build_vocab(text)
+
+        # 3. Vectorize
+        return self.tokenizer.transform(text)
 
     def _image_vectorizer(self, image_matrix: np.ndarray) -> np.ndarray:
         """
