@@ -4,7 +4,7 @@ from Reader.reader_agent import DataExpander
 from Vectorizer.vectorizer_module import FeatureVectorizer
 from Evaluate.evaluate_error_module import mean_squared_error_manual, explained_variance
 
-from PCA.pca_module import PCA  # Nếu bạn vẫn để pca_module.py trong Source/ hoặc project root
+from PCA.pca_module import PCA
 
 import numpy as np
 import pandas as pd
