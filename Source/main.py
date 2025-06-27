@@ -6,20 +6,20 @@ from PCA.pca_module import PCA
 import numpy as np
 import pandas as pd
 import os
-import time
+import time 
 
 def main():
     t1 = time.time()
-    log_path = "log_csv.txt" # CHANGE NAME FOLLOWING THE TASK REQUIREMENTS, EX: log_csv, log_txt, ...
+    log_path = "log_txt.txt" # CHANGE NAME FOLLOWING THE TASK REQUIREMENTS, EX: log_csv, log_txt, ...
 
     with open(log_path, "w", encoding="utf-8") as log_file:
         error_mean = 0
         explain_var_mean = 0
 
         for i in range(1, 6):
-            path = f"../Test_Data/txt/file{i}.txt"  
+            path = f"./Source/Test_Data/txt/file{i}.txt"  # change path here
             data = DataExpander().expand(path)
-
+      
             fv = FeatureVectorizer()
             vectorized_data = fv.vectorize(data)
 
