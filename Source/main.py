@@ -91,7 +91,7 @@ def main():
         for i in range(1, 6):
             path = f"./Source/Test_Data/csv/file{i}.csv"  # change path here
             data = DataExpander().expand(path)
-            print(data)
+            # print(data)
             fv = FeatureVectorizer()
             vectorized_data = fv.vectorize(data)
 
