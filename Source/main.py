@@ -10,16 +10,16 @@ import time
 
 def main():
     t1 = time.time()
-    log_path = "log_txt.txt" # CHANGE NAME FOLLOWING THE TASK REQUIREMENTS, EX: log_csv, log_txt, ...
+    log_path = "log_photo.txt" # CHANGE NAME FOLLOWING THE TASK REQUIREMENTS, EX: log_csv, log_txt, ...
 
     with open(log_path, "w", encoding="utf-8") as log_file:
         error_mean = 0
         explain_var_mean = 0
 
         for i in range(1, 6):
-            path = f"./Source/Test_Data/txt/file{i}.txt"  # change path here
+            path = f"./Source/Test_Data/photo/file{i}.jpg"  # change path here
             data = DataExpander().expand(path)
-      
+            # print(data)
             fv = FeatureVectorizer()
             vectorized_data = fv.vectorize(data)
 

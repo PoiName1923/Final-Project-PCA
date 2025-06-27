@@ -13,6 +13,7 @@ class FeatureVectorizer:
     """
     #  ========== Text vectorize Way 1 ==========
     def __init__(self):
+        self._tfidf_vectorizer = TfidfVectorizer()
         self.tokenizer = ManualTokenizer(maxlen=512, scale="minmax")
      
     def _text_vectorizer(self, text: str) -> np.ndarray:
@@ -136,20 +137,23 @@ class FeatureVectorizer:
     def _image_vectorizer(self, image_matrix: np.ndarray) -> np.ndarray:
         """
         Vectorize image data into a feature vector.
- 
+
         Returns:
-            np.ndarray: An array representing the feature vector of the image data.
+            np.ndarray: A normalized grayscale image array in float32 (values in [0,1])
         """
 
         # Check params
         if not isinstance(image_matrix, np.ndarray):
             raise TypeError("image_matrix must be a numpy array.")
         
-        # Convert image to grayscale matrix
+        # Convert to grayscale
         gray_image_matrix = cv2.cvtColor(image_matrix, cv2.COLOR_BGR2GRAY)
-        
-        return gray_image_matrix    # Shape(m, n) 
-       
+
+        # Normalize to [0, 1]
+        gray_image_matrix = gray_image_matrix.astype(np.float32) / 255.0
+
+        return gray_image_matrix  # Shape (H, W), float32, values in [0, 1]
+
 
     def _standard_scaler(self, series: pd.Series) -> pd.Series:
         """
@@ -290,7 +294,7 @@ class FeatureVectorizer:
                 elif avg_length > length_threshold or ratio_special_chars > 0.2:
                     self._tfidf_vectorizer.fit(text_series.tolist())
                     tfidf_matrix = np.vstack([
-                        self._tfidf_vectorizer.transform(doc).reshape(1, -1)
+                        self._tfidf_vectorizer.transform(doc).mean(axis=0).reshape(1, -1)
                         for doc in text_series
                     ])
                     tfidf_data.append(tfidf_matrix)

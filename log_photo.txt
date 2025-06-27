@@ -1,0 +1,8 @@
+File 1:
+  MSE: (0.0044507483367631166+0j)
+  Explained Variance: 81.97426232151534
+
+File 2:
+  MSE: 0.004514450568505464
+  Explained Variance: 80.58066976515299
+

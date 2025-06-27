@@ -1,52 +1,33 @@
 import nltk
-nltk.download('punkt_tab')
-
-from nltk.tokenize import word_tokenize
-from nltk.tokenize import sent_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize
 from typing import Tuple
 import numpy as np
 
 class TfidfVectorizer:
     """
-    A class to represent a TF-IDF vectorizer.
+    A simple implementation of TF-IDF vectorizer.
     """
 
     def __init__(self):
-        pass
+        self.word_set = set()
+        self.word_count = {}
+        self.word_dict = {}
+        self.total_documents = 0
+        self.is_fitted = False
 
-
-    def _split_sentences(self, text: str) -> None:
+    def _split_sentences(self, text: str) -> list:
         """
         Split the text into sentences.
-
-        Args:
-            text (str): The input text to be split into sentences.
-        
-        Returns:
-            list: A list of sentences.
         """
-
-        # Cut text into sentences
         return sent_tokenize(text)
-
 
     def _preprocess_text(self, sentences_list: list) -> Tuple[list, set, dict, dict, int]:
         """
-        Preprocess the text:
-            - Convert to lowercase.
-            - Remove punctuation.
-
-        Returns:
-            sentences (list): List of tokenized sentences.
-            word_set (set): Set of unique words.
-            word_count (dict): Dictionary with words as keys and their document frequency as values.
-            word_dict (dict): Dictinary with words as keys and their indices as values.
-            total_documents (int): Number of sentences.
+        Preprocess the text: tokenize, lowercase, remove punctuation.
         """
-
         sentences = []
         word_set = []
-        
+
         for sent in sentences_list:
             words = [word.lower() for word in word_tokenize(sent) if word.isalpha()]
             sentences.append(words)
@@ -55,107 +36,90 @@ class TfidfVectorizer:
                     word_set.append(word)
 
         word_set = set(word_set)
-
         total_documents = len(sentences)
-        
-        word_dict = {}
         word_dict = {word: i for i, word in enumerate(word_set)}
-
 
         word_count = {}
         for word in word_set:
-            word_count[word] = 0
-            for sent in sentences:
-                if word in sent:
-                    word_count[word] += 1
-                    
-        return sentences, word_set, word_count, word_dict, total_documents
-    
+            word_count[word] = sum(1 for sent in sentences if word in sent)
 
-    
+        return sentences, word_set, word_count, word_dict, total_documents
+
     def _term_freq(self, words: list, word: str) -> float:
         """
-        Calculate TF (Term Frequency) for the preprocessed text.
-
-        Args:
-            words (list): List of words in the sentence.s
-            word (str): The word to calculate TF.
-
-        Returns:
-            float: the TF value.
+        Calculate TF (Term Frequency) of a word in a sentence.
         """
-
         N = len(words)
-        occurance = len([token for token in words if token == word])
+        if N == 0:
+            return 0.0
+        return words.count(word) / N
 
-        return occurance / N
-    
-    
-    def _inverse_doc_freq(self, word: str, word_count: dict, total_documents: int) -> float:
+    def _inverse_doc_freq(self, word: str) -> float:
         """
-        Calculate IDF (Inverse Document Frequency) for the given word.
-
-        Args:
-            word (str): The word to calculate IFD.
-            word_count (dict): Dictionary with words as keys and their doc frequency as values.
-            total_documents (int): Total number of sentences.
-
-        Returns:
-            float: The IDF value for the word.
+        Calculate IDF (Inverse Document Frequency) of a word.
         """
-        word_occurrence = word_count.get(word) 
+        word_occurrence = self.word_count.get(word, 1)
+        return np.log(self.total_documents / word_occurrence)
 
-        idf = np.log(total_documents / word_occurrence)
-
-        return idf
-    
-
-    def _tf_idf(self, sentence: list, word_set: set, word_count: dict, 
-                     word_dict: dict, total_documents: int) -> np.ndarray:
+    def _tf_idf(self, sentence: list) -> np.ndarray:
         """
-        Calculate the TF-IDF vector.
-
-        Args:
-            sentence (list): List of words in the sentence.
-            word_set (set): Set of unique words.
-            word_count (dict): Dictionary with words as keys and their document frequency as values.
-            word_dict (dict): Dictionary with words as keys and their indices as values.
-            total_documents (int): Total number of sentences.
-        
-        Returns:
-            np.ndarray: The TF-IDF vector.
+        Calculate TF-IDF vector for a sentence.
         """
-        
-        tf_idf_vec = np.zeros((len(word_set),))
+        tf_idf_vec = np.zeros((len(self.word_set),))
 
         for word in sentence:
-            tf = self._term_freq(sentence, word)
-            idf = self._inverse_doc_freq(word, word_count, total_documents)
-            
-            value = tf * idf
-            tf_idf_vec[word_dict[word]] = value 
+            if word in self.word_dict:
+                tf = self._term_freq(sentence, word)
+                idf = self._inverse_doc_freq(word)
+                tf_idf_vec[self.word_dict[word]] = tf * idf
 
         return tf_idf_vec
-    
+
+    def fit(self, texts: list[str]) -> None:
+        """
+        Fit the vectorizer on a list of documents.
+        """
+        all_sentences = []
+        for text in texts:
+            all_sentences.extend(self._split_sentences(text))
+
+        sentences, word_set, word_count, word_dict, total_documents = self._preprocess_text(all_sentences)
+
+        self.word_set = word_set
+        self.word_count = word_count
+        self.word_dict = word_dict
+        self.total_documents = total_documents
+        self.is_fitted = True
+
+    # def transform(self, text: str) -> np.ndarray:
+    #     """
+    #     Transform a single document into a TF-IDF vector matrix (one row per sentence).
+    #     """
+    #     if not self.is_fitted:
+    #         raise RuntimeError("TfidfVectorizer must be fitted before calling transform().")
+
+    #     sentences_list = self._split_sentences(text)
+    #     vectors = []
+
+    #     for sent in sentences_list:
+    #         words = [word.lower() for word in word_tokenize(sent) if word.isalpha()]
+    #         tf_idf_vec = self._tf_idf(words)
+    #         vectors.append(tf_idf_vec)
+
+    #     return np.array(vectors)
+
 
     def transform(self, text: str) -> np.ndarray:
         """
-        Implement the TF-IDF vectorization process.
-
-        Returns:
-            np.array: The TF-IDF vector for the text.
+        Transform a single document into a 1D TF-IDF vector.
         """
+        if not self.is_fitted:
+            raise RuntimeError("TfidfVectorizer must be fitted before calling transform().")
 
-        #Split text into sentences
-        sentences_list = self._split_sentences(text)
+        if not isinstance(text, str):
+            text = str(text)
 
-        # Preprocess text and calculate TF-IDF vectors
-        vectors = []
-        sentences, word_set, word_count, word_dict, total_documents = self._preprocess_text(sentences_list)
-
-        for sentence in sentences:
-            tf_idf_vec = self._tf_idf(sentence, word_set, word_count, word_dict, total_documents)
-            vectors.append(tf_idf_vec)
-        
-        return np.array(vectors)
-    
+        # Không chia câu — xử lý toàn bộ văn bản
+        words = [word.lower() for word in word_tokenize(text) if word.isalpha()]
+        tf_idf_vec = self._tf_idf(words)
+        return tf_idf_vec  # shape (n_vocab,)
