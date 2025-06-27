@@ -10,7 +10,7 @@ import time
 
 def main():
     t1 = time.time()
-    log_path = "log_docx.txt"
+    log_path = "log_xlsx.txt"
 
     with open(log_path, "w", encoding="utf-8") as log_file:
         total_error = 0
@@ -18,7 +18,7 @@ def main():
         num_files = 5
 
         for file_idx in range(1, num_files + 1):
-            path = f"./Source/Test_Data/docx/file{file_idx}.docx"
+            path = f"./Source/Test_Data/xlsx/file{file_idx}.xlsx"
             data = DataExpander().expand(path)
 
             file_error_sum = 0
