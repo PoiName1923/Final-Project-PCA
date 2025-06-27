@@ -2,9 +2,8 @@ import numpy as np
 import pandas as pd
 import cv2
 import librosa
-from tf_idf_module import TfidfVectorizer
-from vector_for_text_Way1 import ManualTokenizer, auto_select_maxlen
-from tf_idf_module import TfidfVectorizer
+from .tf_idf_module import TfidfVectorizer
+from .vector_for_text_Way1 import ManualTokenizer, auto_select_maxlen
 from typing import List
 import re
 
