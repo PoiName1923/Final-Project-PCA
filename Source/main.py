@@ -18,7 +18,7 @@ def main():
         num_files = 5
 
         for file_idx in range(1, num_files + 1):
-            path = f"./Source/Test_Data/txt/file{file_idx}.txt"
+            path = f"./Source/Test_Data/docx/file{file_idx}.docx"
             data = DataExpander().expand(path)
 
             file_error_sum = 0
