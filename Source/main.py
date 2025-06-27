@@ -1,11 +1,8 @@
 # Source/main.py
-
 from Reader.reader_agent import DataExpander
 from Vectorizer.vectorizer_module import FeatureVectorizer
 from Evaluate.evaluate_error_module import mean_squared_error_manual, explained_variance
-
 from PCA.pca_module import PCA
-
 import numpy as np
 import pandas as pd
 import os
@@ -13,14 +10,14 @@ import time
 
 def main():
     t1 = time.time()
-    log_path = "way3_text_log.txt"
+    log_path = "log_csv.txt" # CHANGE NAME FOLLOWING THE TASK REQUIREMENTS, EX: log_csv, log_txt, ...
 
     with open(log_path, "w", encoding="utf-8") as log_file:
         error_mean = 0
         explain_var_mean = 0
 
-        for i in range(1, 9):
-            path = f"../Test_Data/txt/file{i}.txt"  # <- lùi ra ngoài Source/
+        for i in range(1, 6):
+            path = f"../Test_Data/txt/file{i}.txt"  
             data = DataExpander().expand(path)
 
             fv = FeatureVectorizer()
@@ -41,8 +38,8 @@ def main():
             log_file.write(f"  MSE: {error}\n")
             log_file.write(f"  Explained Variance: {explain_var}\n\n")
 
-        error_mean /= 8
-        explain_var_mean /= 8  # chỉnh lại nếu xử lý đúng 8 file
+        error_mean /= 5
+        explain_var_mean /= 5 
 
         log_file.write(f"Mean Error (MSE): {error_mean}\n")
         log_file.write(f"Mean Explained Variance: {explain_var_mean}\n")
