@@ -1,22 +1,22 @@
 File 1:
-  Avg MSE: (0.004012185355689053+0j)
-  Avg Explained Variance: 95.08236744906948
+  Avg MSE: (0.006677393522750237+0j)
+  Avg Explained Variance: 88.03974200867835
 
 File 2:
-  Avg MSE: 0.008539798840438716
-  Avg Explained Variance: 80.38017024528872
+  Avg MSE: (0.014232802098284666+0j)
+  Avg Explained Variance: 82.51428114737288
 
 File 3:
-  Avg MSE: 0.01288524931153033
-  Avg Explained Variance: 80.98245480677421
+  Avg MSE: (0.015325536223140897+0j)
+  Avg Explained Variance: 81.00952710923977
 
 File 4:
-  Avg MSE: 0.0183694146296855
-  Avg Explained Variance: 81.30905998615864
+  Avg MSE: (0.013406207882827417+0j)
+  Avg Explained Variance: 81.23373227658166
 
 File 5:
-  Avg MSE: (0.003436121710108073+0j)
-  Avg Explained Variance: 95.8982832987083
+  Avg MSE: (0.009921688956653619+0j)
+  Avg Explained Variance: 87.50612238424996
 
-Mean Error (MSE): (0.009448553969490334+0j)
-Mean Explained Variance: 86.73046715719988
+Mean Error (MSE): (0.011912725736731368+0j)
+Mean Explained Variance: 84.06068098522454
