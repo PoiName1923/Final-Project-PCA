@@ -122,7 +122,7 @@ class PCA:
         k = 0
         while k < len(cum_explained_variance) and cum_explained_variance[k] < self.n_components:
             k += 1
-
+        k += 1
         self.eig_vals, self.components = self.select_top_components(self.eigenpairs, k)
 
         total_selected_variance = sum(abs(val) for val in self.eig_vals)
