@@ -45,23 +45,14 @@ class PCA:
 
     def compute_covariance_matrix(self, X_centered):
         """
-        Tạo ma trận hiệp phương sai theo công thức gốc với đầu vào X_centered được tính trước (X - mean)
-        Đầu ra là ma trận hiệp phương sai 
+        Tạo ma trận hiệp phương sai bằng vector hóa.
+        X_centered: np.ndarray (n_samples x n_features)
         """
-        n_samples = len(X_centered)
-        n_features = len(X_centered[0])
-        cov_matrix = []
+        X_centered = np.array(X_centered)
+        n_samples = X_centered.shape[0]
+        cov_matrix = (X_centered.T @ X_centered) / (n_samples - 1)
+        return cov_matrix.tolist()
 
-        for i in range(n_features):
-            row = []
-            for j in range(n_features):
-                cov_ij = 0
-                for k in range(n_samples):
-                    cov_ij += X_centered[k][i] * X_centered[k][j]
-                cov_ij /= (n_samples - 1) 
-                row.append(cov_ij)
-            cov_matrix.append(row)
-        return cov_matrix
 
     def compute_eigen_decomposition(self, cov_matrix):
         """
@@ -131,7 +122,6 @@ class PCA:
         k = 0
         while k < len(cum_explained_variance) and cum_explained_variance[k] < self.n_components:
             k += 1
-        k += 1  # chọn thêm 1 component để đảm bảo >= tỉ lệ yêu cầu
 
         self.eig_vals, self.components = self.select_top_components(self.eigenpairs, k)
 
@@ -148,21 +138,14 @@ class PCA:
         return self
 
     def transform(self, X):
+        X = np.array(X)
         X_centered = self.center_data(X, self.mean_vector)
+        X_centered = np.array(X_centered)
 
-        # Chiếu dữ liệu vào các thành phần chính (components)
-        X_proj = []
-        for x in X_centered:
-            # Với mỗi vector x đã center, chiếu nó lên từng thành phần chính
-            proj = []
-            for i in range(len(self.components)):
-                dot = 0
-                for j in range(len(x)):
-                    dot += x[j] * self.components[i][j]  # Tính tích vô hướng giữa x và thành phần chính thứ i
-                proj.append(dot)
-            X_proj.append(proj)
+        # Chiếu vào không gian PCA
+        X_proj = X_centered @ np.array(self.components).T
 
-        return X_proj
+        return X_proj.tolist()
 
     def fit_transform(self, X):
         self.fit(X)
